@@ -66,3 +66,23 @@ ffmpeg -i "rtmp://example.com/live/ playpath=foo.sdp" \
 The second line of the FFMPEG command is the important bit, as it ensures
 FFMPEG outputs in the format ofxVideoPipe expects. You should set `-r` (frame
 rate) to whatever you pass to `ofxVideoPipe::setFrameRate` in your app.
+
+Once FFMPEG is ready, it should look like this:
+
+```
+# ...
+Input #0, flv, from 'rtmp://example.com/live/ playpath=foo.sdp':
+  Metadata:
+    frameWidth      : 480
+    frameHeight     : 272
+    displayWidth    : 480
+    displayHeight   : 272
+    audiochannels   : 1
+  Duration: N/A, start: 0.000000, bitrate: 335 kb/s
+    Stream #0:0: Video: h264 (Constrained Baseline), yuv420p, 480x272, 294 kb/s, 25 tbr, 1k tbn, 50 tbc
+    Stream #0:1: Audio: aac, 48000 Hz, stereo, s16, 40 kb/s
+```
+
+It won't start writing frames until your app is running. So...
+
+Finally, build and run your app.

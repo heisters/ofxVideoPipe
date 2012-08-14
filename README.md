@@ -56,10 +56,12 @@ Now create a named pipe and start FFMPEG writing a stream to the pipe. In this
 case, we'll watch an RTMP stream, but it could be any input format FFMPEG
 supports.
 
-    cd <application directory>
-    mkfifo bin/data/fifo.ppm
-    ffmpeg -i "rtmp://example.com/live/ playpath=foo.sdp" \
-    -an -f image2pipe -vcodec ppm -r 20 -y bin/data/fifo.ppm
+```bash
+cd <application directory>
+mkfifo bin/data/fifo.ppm
+ffmpeg -i "rtmp://example.com/live/ playpath=foo.sdp" \
+-an -f image2pipe -vcodec ppm -r 20 -y bin/data/fifo.ppm
+```
 
 The second line of the FFMPEG command is the important bit, as it ensures
 FFMPEG outputs in the format ofxVideoPipe expects. You should set `-r` (frame

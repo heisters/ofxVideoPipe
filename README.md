@@ -9,7 +9,7 @@ Usage
 
 First, setup your OF app to use ofxVideoPipe.
 
-in +testApp.h+:
+in `testApp.h`:
 ```c++
 #pragma once
 
@@ -28,7 +28,7 @@ private:
 };
 ```
 
-in +testApp.cpp+:
+in `testApp.cpp`:
 
 ```c++
 #include "NewsApp.h"
@@ -62,5 +62,5 @@ supports.
     -an -f image2pipe -vcodec ppm -r 20 -y bin/data/fifo.ppm
 
 The second line of the FFMPEG command is the important bit, as it ensures
-FFMPEG outputs in the format ofxVideoPipe expects. You should set +-r+ (frame
-rate) to whatever you pass to +ofxVideoPipe::setFrameRate+ in your app.
+FFMPEG outputs in the format ofxVideoPipe expects. You should set `-r` (frame
+rate) to whatever you pass to `ofxVideoPipe::setFrameRate` in your app.

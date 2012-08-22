@@ -69,24 +69,39 @@ void ofxVideoPipe::idle(){
 }
 
 ofPixelsRef ofxVideoPipe::getPixelsRef(){
+    if(isFrameNew()){
+        ofLogWarning() << "Returning pixels from ofxVideoPipe::getPixelsRef, but they are not up to date. Call updatePixels first.";
+    }
+    
+    return pixels;
+}
+
+void ofxVideoPipe::updatePixels(){
     lock();
     if(isFrameChanged){
         currentFrame.writeTo(pixels);
         isFrameChanged = false;
     }
     unlock();
-    
-    return pixels;
 }
 
 void ofxVideoPipe::update(){
-    if(isFrameNew()){
-        frameImage.setFromPixels(getPixelsRef());
+    if(!isFrameNew()) return;
+
+    int oldWidth = pixels.getWidth();
+    int oldHeight = pixels.getHeight();
+    
+    updatePixels();
+    
+    if(oldWidth != pixels.getWidth() || oldHeight != pixels.getHeight()){
+        onSizeChangedData data(pixels.getWidth(), pixels.getHeight());
+        ofNotifyEvent(onSizeChanged, data, this);
     }
+    
+    frameImage.setFromPixels(getPixelsRef());
 }
 
 void ofxVideoPipe::draw(int x, int y){
-    update();
     frameImage.draw(x, y);
 }
 

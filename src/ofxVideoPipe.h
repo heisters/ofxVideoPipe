@@ -34,6 +34,12 @@ class ofxVideoPipe : public ofThread {
 
 
 public:
+    struct onSizeChangedData {
+        onSizeChangedData(int w, int h) : width(w), height(h) {};
+        int width;
+        int height;
+    };
+    
     ofxVideoPipe() : isFrameChanged(false) {};
     
     void open(string _filename);
@@ -44,10 +50,13 @@ public:
     
     bool isFrameNew();
     ofPixelsRef getPixelsRef();
+    void updatePixels();
     void setFrameRate(float targetRate);
     
     int getWidth(){ return currentFrame.getWidth(); }
     int getHeight(){ return currentFrame.getHeight(); }
+    
+    ofEvent< onSizeChangedData > onSizeChanged;
     
 private:
     string readLine();

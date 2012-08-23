@@ -40,7 +40,7 @@ public:
         int height;
     };
     
-    ofxVideoPipe() : isFrameChanged(false) {};
+    ofxVideoPipe() : isFrameChanged(false), isPipeOpen(false), filename("") {};
     
     void open(string _filename);
     void close();
@@ -63,6 +63,9 @@ private:
     void readFrame();
     void readHeader();
     void idle();
+    void openPipe();
+    void closePipe();
+    bool tryOpenPipe();
     
     PPMFrame currentFrame;
     ofPixels pixels;
@@ -71,5 +74,6 @@ private:
     string filename;
     bool isFrameChanged;
     bool isFrameRateSet;
+    bool isPipeOpen;
     int prevMillis, millisForFrame;
 };

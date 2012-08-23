@@ -68,9 +68,10 @@ void ofxVideoPipe::threadedFunction(){
 
 /*******************************************************************************
  * Timing
+ *
+ * much of this section is cribbed from OF core's ofSetFrameRate
  */
 
-// cribbed from OF core
 void ofxVideoPipe::idle(){
     if (ofGetFrameNum() != 0 && isFrameRateSet == true){
 		int diffMillis = ofGetElapsedTimeMillis() - prevMillis;
@@ -88,7 +89,6 @@ void ofxVideoPipe::idle(){
 	prevMillis = ofGetElapsedTimeMillis(); // you have to measure here
 }
 
-// cribbed from OF core
 void ofxVideoPipe::setFrameRate(float targetRate){
     // given this FPS, what is the amount of millis per frame
     // that should elapse?
@@ -126,10 +126,6 @@ void ofxVideoPipe::update(){
 }
 
 ofPixelsRef ofxVideoPipe::getPixelsRef(){
-    if(isFrameNew()){
-        ofLogWarning() << "Returning pixels from ofxVideoPipe::getPixelsRef, but they are not up to date. Call updatePixels first.";
-    }
-    
     return pixels;
 }
 
@@ -157,7 +153,6 @@ void ofxVideoPipe::draw(int x, int y){
     frameImage.draw(x, y);
 }
 
-
 /*******************************************************************************
  * Opening, closing
  */
@@ -165,23 +160,113 @@ void ofxVideoPipe::draw(int x, int y){
 void ofxVideoPipe::open(string _filename){
     filename = _filename;
     frameImage.allocate(1, 1, OF_IMAGE_COLOR);
+    openPipe();
+    startThread();
+}
+
+void ofxVideoPipe::openPipe(){
+    if (isPipeOpen) return;
+    
+    // lots of voodoo to avoid deadlocks when the fifo writer goes away
+    // temporarily.
+    
+    int fd_pipe = ::open(ofToDataPath(filename).c_str(), O_RDONLY | O_NONBLOCK);
+    if (fd_pipe < 0) {
+        ofLogError() << "Error opening pipe " << filename << ": " << errno;
+        return;
+    }
+    
+    fd_set set;
+    FD_ZERO(&set);
+    FD_SET(fd_pipe, &set);
+    
+    struct timeval timeout;
+    timeout.tv_sec = 1;
+    timeout.tv_usec = 0;
+    
+    int ready = select(fd_pipe + 1, &set, NULL, NULL, &timeout);
+    
+    if (ready < 0) {
+        ofLogError() << "Error waiting for pipe to be ready for reading.";
+        ::close(fd_pipe);
+        return;
+    } else if (ready == 0) {
+        // timeout
+        ::close(fd_pipe);
+        return;
+    }
+    
+    ::close(fd_pipe);
     
     pipe.open(filename, ofFile::ReadOnly, true);
-    startThread();
+    isPipeOpen = true;
+}
+
+void ofxVideoPipe::closePipe(){
+    if (!isPipeOpen) return;
+    
+    pipe.close();
+    isPipeOpen = false;
 }
 
 void ofxVideoPipe::close(){
     waitForThread(true);
-    pipe.close();
+    closePipe();
+}
+
+bool ofxVideoPipe::tryOpenPipe(){
+    if (filename.empty() || !frameImage.bAllocated()) {
+        return false;
+    }
+    
+    openPipe();
+    return true;
 }
 
 /*******************************************************************************
  * Reading data
  */
 
+void ofxVideoPipe::readFrame(){
+    if(!isPipeOpen && !tryOpenPipe()){
+        ofLogError() << "Attempting to read, but the pipe has not been properly initialized.";
+    }
+
+    lock();
+    
+    currentFrame.reset();
+    
+    readHeader();
+    
+    if (pipe.good() && currentFrame.good()) {        
+        char * buffer = new char[currentFrame.dataSize()];
+        pipe.read(buffer, currentFrame.dataSize());
+        currentFrame.set(buffer);
+        
+        isFrameChanged = true;
+    } else if (!pipe.good()) {
+        ofLogNotice() << "Attempting to reopen stream.";
+        closePipe();
+    } else {
+        ofLogError() << "Error opening PPM stream for reading: " << currentFrame.errors();
+    }
+    unlock();
+}
+
 string ofxVideoPipe::readLine(){
     string buffer;
     getline(pipe, buffer);
+    
+    if(!pipe.good()){
+        if(pipe.eofbit){
+            ofLogError() << "Pipe has been closed.";
+        } else if (pipe.failbit) {
+            ofLogError() << "Reading from pipe failed.";
+        } else if (pipe.badbit) {
+            ofLogError() << "Pipe in error state.";
+        }
+    }
+    
     return buffer;
 }
 
@@ -189,12 +274,16 @@ void ofxVideoPipe::readHeader(){
     PPMHeader & header = currentFrame.header;
     
     header.type = readLine();
+    if(!pipe.good()) return;
+    
     if(header.type != "P6"){
         header.error << "PPM type identifier not found in header.";
         return;
     }
     
     istringstream dimensions(readLine());
+    if(!pipe.good()) return;
+
     dimensions >> header.width;
     dimensions >> header.height;
     if(header.width == 0 || header.height == 0){
@@ -203,26 +292,7 @@ void ofxVideoPipe::readHeader(){
     }
     
     header.depth = ofToInt(readLine());
-    return;
-}
+    if(!pipe.good()) return;
 
-void ofxVideoPipe::readFrame(){
-    lock();
-    
-    currentFrame.reset();
-    
-    readHeader();
-    
-    if(currentFrame.good()){        
-        char * buffer = new char[currentFrame.dataSize()];
-        pipe.read(buffer, currentFrame.dataSize());
-        currentFrame.set(buffer);
-        
-        isFrameChanged = true;
-    } else {
-        ofLogError() << "Error opening PPM stream for reading:";
-        ofLogError() << currentFrame.errors();
-   }
-    
-    unlock();
+    return;
 }

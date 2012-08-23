@@ -185,18 +185,15 @@ void ofxVideoPipe::openPipe(){
     timeout.tv_usec = 0;
     
     int ready = select(fd_pipe + 1, &set, NULL, NULL, &timeout);
+    ::close(fd_pipe);
     
     if (ready < 0) {
         ofLogError() << "Error waiting for pipe to be ready for reading.";
-        ::close(fd_pipe);
         return;
     } else if (ready == 0) {
         // timeout
-        ::close(fd_pipe);
         return;
     }
-    
-    ::close(fd_pipe);
     
     pipe.open(filename, ofFile::ReadOnly, true);
     isPipeOpen = true;

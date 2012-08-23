@@ -123,8 +123,10 @@ void ofxVideoPipe::update(){
     
     updatePixels();
     
-    if(oldWidth != pixels.getWidth() || oldHeight != pixels.getHeight()){
-        onSizeChangedData data(pixels.getWidth(), pixels.getHeight());
+    int w = pixels.getWidth();
+    int h = pixels.getHeight();
+    if((oldWidth != w || oldHeight != h) && (w > 0 && h > 0)){
+        onSizeChangedData data(w, h);
         ofNotifyEvent(onSizeChanged, data, this);
     }
     

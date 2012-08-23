@@ -73,6 +73,7 @@ private:
     ofFile pipe;
     string filename;
     bool isFrameChanged;
+    bool isPixelsChanged;
     bool isFrameRateSet;
     bool isPipeOpen;
     int prevMillis, millisForFrame;

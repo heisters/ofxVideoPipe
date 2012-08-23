@@ -110,7 +110,13 @@ void ofxVideoPipe::setFrameRate(float targetRate){
  */
 
 void ofxVideoPipe::update(){
-    if(!isFrameNew()) return;
+    isFrameChanged = false;
+    
+    lock();
+    bool changed = isPixelsChanged;
+    unlock();
+    if(!changed) return;
+    
     
     int oldWidth = pixels.getWidth();
     int oldHeight = pixels.getHeight();
@@ -123,6 +129,11 @@ void ofxVideoPipe::update(){
     }
     
     frameImage.setFromPixels(getPixelsRef());
+
+    lock();
+    isPixelsChanged = false;
+    unlock();
+    isFrameChanged = true;
 }
 
 ofPixelsRef ofxVideoPipe::getPixelsRef(){
@@ -131,18 +142,14 @@ ofPixelsRef ofxVideoPipe::getPixelsRef(){
 
 void ofxVideoPipe::updatePixels(){
     lock();
-    if(isFrameChanged){
+    if(isPixelsChanged){
         currentFrame.writeTo(pixels);
-        isFrameChanged = false;
     }
     unlock();
 }
 
 bool ofxVideoPipe::isFrameNew(){
-    lock();
-    bool changed = isFrameChanged;
-    unlock();
-    return changed;
+    return isFrameChanged;
 }
 
 /*******************************************************************************
@@ -240,7 +247,7 @@ void ofxVideoPipe::readFrame(){
         pipe.read(buffer, currentFrame.dataSize());
         currentFrame.set(buffer);
         
-        isFrameChanged = true;
+        isPixelsChanged = true;
     } else if (!pipe.good()) {
         ofLogNotice() << "Attempting to reopen stream.";
         closePipe();

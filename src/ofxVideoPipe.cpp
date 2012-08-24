@@ -39,6 +39,7 @@ bool ofxVideoPipe::PPMHeader::good(){
  ******************************************************************************/
 
 void ofxVideoPipe::PPMFrame::writeTo(ofPixels & pixels){
+    if(header.width < 1 || header.height < 1) return;
     pixels.setFromPixels(
                          (unsigned char *)getBinaryBuffer(),
                          header.width,
@@ -230,70 +231,68 @@ void ofxVideoPipe::close(){
  * Reading data
  */
 
-void ofxVideoPipe::readFrame(){
+void ofxVideoPipe::readFrame() throw() {
     if(openPipe() != OPEN_PIPE_SUCCESS) return;
 
     lock();
     
-    currentFrame.reset();
-    
-    readHeader();
-    
-    if (pipe.good() && currentFrame.good()) {        
+    try {
+        currentFrame.reset();
+        
+        readHeader();
+        
         char * buffer = new char[currentFrame.dataSize()];
         pipe.read(buffer, currentFrame.dataSize());
-        currentFrame.set(buffer);
+        handlePipeReadError();
         
+        currentFrame.set(buffer);
+        delete buffer;
         isPixelsChanged = true;
-    } else if (!pipe.good()) {
-        ofLogNotice() << "Attempting to reopen stream.";
-        closePipe();
-    } else {
-        ofLogError() << "Error opening PPM stream for reading: " << currentFrame.errors();
+    } catch (ReadError & boom) {
+        if(!currentFrame.good()){
+            ofLogError() << "Error opening PPM stream for reading: " << currentFrame.errors();
+        }
     }
+
     unlock();
 }
 
-string ofxVideoPipe::readLine(){
+string ofxVideoPipe::readLine() throw(ofxVideoPipe::ReadError) {
     string buffer;
     getline(pipe, buffer);
-    
-    if(!pipe.good()){
-        if(pipe.eofbit){
-            ofLogError() << "Pipe has been closed.";
-        } else if (pipe.failbit) {
-            ofLogError() << "Reading from pipe failed.";
-        } else if (pipe.badbit) {
-            ofLogError() << "Pipe in error state.";
-        }
-    }
-    
+    handlePipeReadError();
     return buffer;
 }
 
-void ofxVideoPipe::readHeader(){
+void ofxVideoPipe::readHeader() throw(ofxVideoPipe::ReadError) {
     PPMHeader & header = currentFrame.header;
-    
+
     header.type = readLine();
-    if(!pipe.good()) return;
     
     if(header.type != "P6"){
         header.error << "PPM type identifier not found in header.";
-        return;
+        throw readError;
     }
     
     istringstream dimensions(readLine());
-    if(!pipe.good()) return;
-
     dimensions >> header.width;
     dimensions >> header.height;
-    if(header.width == 0 || header.height == 0){
+    if(header.width < 1 || header.height < 1){
         header.error << "Invalid dimensions for PPM stream. " << header.width << header.height;
-        return;
+        throw readError;
     }
     
     header.depth = ofToInt(readLine());
-    if(!pipe.good()) return;
+}
 
-    return;
+void ofxVideoPipe::handlePipeReadError() throw(ofxVideoPipe::ReadError) {
+    if (pipe.good()) return;
+    
+    if (pipe.eof()) {
+        ofLogError() << "Pipe has been closed, attempting to reopen.";
+        closePipe();
+    } else if (pipe.fail()) {
+        ofLogError() << "Reading from pipe failed.";
+    }
+    throw readError;
 }

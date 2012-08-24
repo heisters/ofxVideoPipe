@@ -40,6 +40,12 @@ public:
         int height;
     };
     
+    class ReadError : public std::runtime_error {
+    public:
+        ReadError() : std::runtime_error("Error reading from pipe") {};
+        ReadError (const string& message) : std::runtime_error(message) {};
+    } readError;
+    
     ofxVideoPipe() : isFrameChanged(false), isPipeOpen(false), filename("") {};
     
     void open(string _filename);
@@ -59,14 +65,17 @@ public:
     ofEvent< onSizeChangedData > onSizeChanged;
     
 private:
-    string readLine();
-    void readFrame();
-    void readHeader();
+    void readFrame () throw();
+    string readLine() throw(ReadError);
+    void readHeader() throw(ReadError);
+    
     void idle();
+    
     int openPipe();
     void closePipe();
     
     PPMFrame currentFrame;
+    string lastLine;
     ofPixels pixels;
     ofImage frameImage;
     ofFile pipe;
@@ -84,4 +93,6 @@ private:
         OPEN_PIPE_SELECT_FAIL = -3,
         OPEN_PIPE_TIMEOUT = -4
     };
+    
+    void handlePipeReadError() throw(ReadError);
 };

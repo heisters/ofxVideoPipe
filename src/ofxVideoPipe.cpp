@@ -169,12 +169,17 @@ void ofxVideoPipe::draw(int x, int y){
 void ofxVideoPipe::open(string _filename){
     filename = _filename;
     frameImage.allocate(1, 1, OF_IMAGE_COLOR);
-    openPipe();
-    startThread();
+    if(openPipe() == OPEN_PIPE_SUCCESS) startThread();
 }
 
-void ofxVideoPipe::openPipe(){
-    if (isPipeOpen) return;
+int ofxVideoPipe::openPipe(){
+    if (isPipeOpen) return OPEN_PIPE_SUCCESS;
+    
+    if (filename.empty() || !frameImage.bAllocated()) {
+        ofLogError() << "Could not open pipe because it is not properly initialized.";
+        return OPEN_PIPE_INIT_FAIL;
+    }
+
     
     // lots of voodoo to avoid deadlocks when the fifo writer goes away
     // temporarily.
@@ -182,7 +187,7 @@ void ofxVideoPipe::openPipe(){
     int fd_pipe = ::open(ofToDataPath(filename).c_str(), O_RDONLY | O_NONBLOCK);
     if (fd_pipe < 0) {
         ofLogError() << "Error opening pipe " << filename << ": " << errno;
-        return;
+        return OPEN_PIPE_FD_FAIL;
     }
     
     fd_set set;
@@ -198,14 +203,15 @@ void ofxVideoPipe::openPipe(){
     
     if (ready < 0) {
         ofLogError() << "Error waiting for pipe to be ready for reading.";
-        return;
+        return OPEN_PIPE_SELECT_FAIL;
     } else if (ready == 0) {
         // timeout
-        return;
+        return OPEN_PIPE_TIMEOUT;
     }
     
     pipe.open(filename, ofFile::ReadOnly, true);
     isPipeOpen = true;
+    return OPEN_PIPE_SUCCESS;
 }
 
 void ofxVideoPipe::closePipe(){
@@ -220,23 +226,12 @@ void ofxVideoPipe::close(){
     closePipe();
 }
 
-bool ofxVideoPipe::tryOpenPipe(){
-    if (filename.empty() || !frameImage.bAllocated()) {
-        return false;
-    }
-    
-    openPipe();
-    return true;
-}
-
 /*******************************************************************************
  * Reading data
  */
 
 void ofxVideoPipe::readFrame(){
-    if(!isPipeOpen && !tryOpenPipe()){
-        ofLogError() << "Attempting to read, but the pipe has not been properly initialized.";
-    }
+    if(openPipe() != OPEN_PIPE_SUCCESS) return;
 
     lock();
     

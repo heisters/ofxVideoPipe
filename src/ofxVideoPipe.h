@@ -63,9 +63,8 @@ private:
     void readFrame();
     void readHeader();
     void idle();
-    void openPipe();
+    int openPipe();
     void closePipe();
-    bool tryOpenPipe();
     
     PPMFrame currentFrame;
     ofPixels pixels;
@@ -77,4 +76,12 @@ private:
     bool isFrameRateSet;
     bool isPipeOpen;
     int prevMillis, millisForFrame;
+    
+    enum openPipeResult {
+        OPEN_PIPE_SUCCESS = 0,
+        OPEN_PIPE_INIT_FAIL = -1,
+        OPEN_PIPE_FD_FAIL = -2,
+        OPEN_PIPE_SELECT_FAIL = -3,
+        OPEN_PIPE_TIMEOUT = -4
+    };
 };
